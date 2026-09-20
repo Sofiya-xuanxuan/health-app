@@ -833,7 +833,7 @@ function SummaryTab({ date }: { date: string }) {
               <div className="mt-4 grid grid-cols-3 gap-2">
                 <SummaryStat label="跑量" value={`${round(summary.runningKm)}km`} />
                 <SummaryStat label="骑行" value={`${round(summary.rideKm)}km`} />
-                <SummaryStat label="力量/瑜伽" value={`${summary.strengthSessions}/${summary.yogaSessions + summary.pilatesSessions}`} />
+                <SummaryStat label="力量训练/瑜伽/Hiit" value={`${summary.strengthSessions}/${summary.yogaSessions + summary.pilatesSessions}/${summary.hiitSessions}`} />
               </div>
             </section>
           </Link>
@@ -844,7 +844,7 @@ function SummaryTab({ date }: { date: string }) {
           <SummaryGroup tone="sky" title="运动" rows={[
             ["跑量", `${round(summary.runningKm)} km`],
             ["骑行", `${round(summary.rideKm)} km`],
-            ["力量训练/瑜伽", `${summary.strengthSessions}/${summary.yogaSessions + summary.pilatesSessions}`],
+            ["力量训练/瑜伽/Hiit", `${summary.strengthSessions}/${summary.yogaSessions + summary.pilatesSessions}/${summary.hiitSessions}`],
           ]} />
           <SummaryGroup tone="amber" title="学习" rows={[
             ["vlog", `${summary.vlogCount}个`],
@@ -892,7 +892,7 @@ function summaryTitle(date: string, period: "week" | "month") {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-xl bg-white/8 px-3 py-2">
-      <div className="text-[11px] text-white/45">{label}</div>
+      <div className="break-words text-[11px] leading-tight text-white/45">{label}</div>
       <div className="mt-1 truncate text-[15px] font-semibold">{value}</div>
     </div>
   );

@@ -13,6 +13,7 @@ export type Summary = DateRange & {
   strengthSessions: number
   yogaSessions: number
   pilatesSessions: number
+  hiitSessions: number
   vlogCount: number
   englishMinutes: number
   readingOutputs: number
@@ -83,6 +84,9 @@ export function summarize(days: DayRecord[], activities: Activity[], range?: Dat
       .reduce((sum, activity) => sum + (activity.count ?? 1), 0),
     pilatesSessions: selected
       .filter((activity) => activity.category === 'exercise' && activity.type === 'pilates')
+      .reduce((sum, activity) => sum + (activity.count ?? 1), 0),
+    hiitSessions: selected
+      .filter((activity) => activity.category === 'exercise' && activity.type === 'hiit')
       .reduce((sum, activity) => sum + (activity.count ?? 1), 0),
     vlogCount: selected
       .filter((activity) => activity.category === 'study' && activity.type === 'vlog')

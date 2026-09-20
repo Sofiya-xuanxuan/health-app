@@ -49,3 +49,26 @@ test('活动数值统一为合法的非负值', () => {
     },
   )
 })
+
+test('AI 把 Hiit 兜底成 workout 时归一回 hiit', () => {
+  assert.deepEqual(
+    normalizeActivity({
+      id: 'x',
+      date: '2026-09-20',
+      category: 'exercise',
+      type: 'workout',
+      label: 'workout',
+      note: '今日运动：Hiit',
+      count: 1,
+    }),
+    {
+      id: 'x',
+      date: '2026-09-20',
+      category: 'exercise',
+      type: 'hiit',
+      label: 'Hiit',
+      note: '今日运动：Hiit',
+      count: 1,
+    },
+  )
+})

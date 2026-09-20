@@ -35,7 +35,7 @@ export const MEAL_LABELS: Record<string, string> = {
 }
 
 export type ActivityCategory = 'exercise' | 'study'
-export type ExerciseType = 'run' | 'strength' | 'yoga' | 'pilates' | 'tennis' | 'ride' | 'swim' | 'workout'
+export type ExerciseType = 'run' | 'strength' | 'yoga' | 'pilates' | 'hiit' | 'tennis' | 'ride' | 'swim' | 'workout'
 export type StudyType = 'english' | 'reading' | 'ai' | 'vlog'
 
 export type Activity = {

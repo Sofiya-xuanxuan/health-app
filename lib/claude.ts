@@ -51,7 +51,7 @@ const ENTRY_SYSTEM = `你是健康记录解析助手，帮用户把一整条自�
 - 提取每餐植物性食材到 plants，归一为原始食材：
   面条/馒头/面包/饺子皮 → "小麦"；米饭/米粉 → "大米"；豆腐/豆浆/豆皮/腐竹 → "大豆"；
   粉丝/粉条 → "绿豆"或"红薯"；燕麦奶 → "燕麦"。
-- 运动记录输出 category="exercise"，type 用 run/strength/yoga/pilates/tennis/ride/swim/workout，尽量提取 minutes、distanceKm、count、note。
+- 运动记录输出 category="exercise"，type 用 run/strength/yoga/pilates/hiit/tennis/ride/swim/workout，尽量提取 minutes、distanceKm、count、note。
 - 学习记录输出 category="study"，type 用 english/reading/ai/vlog，尽量提取 minutes、count。
 - 只做数据抽取，不要健康建议。`
 
@@ -124,9 +124,9 @@ const AGENT_SCHEMA = {
 } as const
 
 const MEALS = ['breakfast', 'lunch', 'dinner', 'snack'] as const
-const EXERCISE_TYPES = ['run', 'strength', 'yoga', 'pilates', 'tennis', 'ride', 'swim', 'workout'] as const
+const EXERCISE_TYPES = ['run', 'strength', 'yoga', 'pilates', 'hiit', 'tennis', 'ride', 'swim', 'workout'] as const
 const STUDY_TYPES = ['english', 'reading', 'ai', 'vlog'] as const
-const EXERCISE = /跑|配速|心率|骑行|游泳|健身|训练|网球|羽毛球|瑜伽|普拉提|力量|公里|千米|km|运动记录|运动/i
+const EXERCISE = /跑|配速|心率|骑行|游泳|健身|训练|网球|羽毛球|瑜伽|普拉提|hiit|高强度间歇|力量|公里|千米|km|运动记录|运动/i
 const FOOD = /早餐|早饭|午餐|午饭|晚餐|晚饭|加餐|夜宵|吃|喝|饭|菜|肉|鱼|蛋|奶|豆|米|面|粉|粥|汤|馒头|吐司|面包|水果|香蕉|苹果|桃|枣|核桃|饼干|酸奶|咖啡|茶|蛋白粉|能量胶|补给/
 const STUDY = /学习|英语|英文|听力|口语|背单词|阅读|读书|看书|读完|笔记|总结|学ai|ai技术|人工智能|机器学习|大模型|编程|vlog|视频|拍视频|发布视频|剪辑/i
 const QUESTION = /[?？]|吗|能不能|是不是|为什么|怎么|怎么算|多少|哪些|有没有|查一下|看一下|分析一下|解释/
@@ -331,6 +331,7 @@ export function parseExercise(message: string, date: string): Run | null {
     /网球/.test(message) ? 'tennis' :
     /瑜伽/.test(message) ? 'yoga' :
     /普拉提/.test(message) ? 'pilates' :
+    /hiit|高强度间歇/i.test(message) ? 'hiit' :
     /力量|健身|深蹲|硬拉/.test(message) ? 'strength' :
     /骑行|单车/.test(message) ? 'ride' :
     /游泳/.test(message) ? 'swim' :
@@ -359,6 +360,7 @@ export function parseExercise(message: string, date: string): Run | null {
     strength: '力量训练',
     yoga: '瑜伽',
     pilates: '普拉提',
+    hiit: 'HIIT',
     ride: '骑行',
     swim: '游泳',
   }

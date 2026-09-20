@@ -171,6 +171,10 @@ test('没有时长的网球和力量训练也按一次保存', async () => {
     kind: 'activities',
     activities: [{ category: 'exercise', type: 'strength', label: '力量训练', count: 1 }],
   })
+  assert.deepEqual(await parseEntry('HIIT', '2026-09-15'), {
+    kind: 'activities',
+    activities: [{ category: 'exercise', type: 'hiit', label: 'Hiit', count: 1 }],
+  })
 })
 
 test('本周零食单独进入零食汇总，不当成每日加餐', async () => {

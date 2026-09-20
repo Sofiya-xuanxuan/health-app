@@ -35,6 +35,11 @@ export function activityFromRun(run: Run): Activity[] {
 
 export function normalizeActivity(activity: Activity): Activity {
   const result = { ...activity }
+  const text = [activity.type, activity.label, activity.title, activity.note].filter(Boolean).join(' ')
+  if (activity.category === 'exercise' && /hiit|高强度间歇/i.test(text)) {
+    result.type = 'hiit'
+    result.label = 'Hiit'
+  }
   if (activity.minutes != null) result.minutes = Math.max(0, Number(activity.minutes) || 0)
   else delete result.minutes
   if (activity.distanceKm != null) result.distanceKm = Math.max(0, Number(activity.distanceKm) || 0)
