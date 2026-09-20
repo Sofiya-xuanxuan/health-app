@@ -1,5 +1,5 @@
 import { deleteActivity, getDay, listWeek, upsertActivity, upsertDay } from './db.ts'
-import { parseEntry, type ParsedEntry, type ParsedMeal } from './claude.ts'
+import { parseEditedMeal, type ParsedEntry, type ParsedMeal } from './claude.ts'
 import { mergeDailySnack, recalc, weekPlants } from './day.ts'
 import { weekdayLabel, weekSunday } from './week.ts'
 import { WEEKLY_SNACK_NOTE, type Activity, type DayRecord, type Meal } from './types.ts'
@@ -117,18 +117,17 @@ export async function editMeal(
     : day[mealKey]
   if (!previous) return { error: '这餐没有记录' }
   const prefix = mealKey === 'breakfast' ? '早餐' : mealKey === 'lunch' ? '午餐' : mealKey === 'dinner' ? '晚餐' : '加餐'
-  const parsed = await parseEntry(`${prefix} ${text}`, date)
-  if (parsed.kind !== 'meal') return { error: '没有解析到饮食内容' }
+  const parsed = await parseEditedMeal(mealKey, previous, `${prefix} ${text}`)
   const nextItems = editedItems(previous.items, text) === previous.items
     ? previous.items
-    : editedItems(previous.items, parsed.meal.items)
+    : editedItems(previous.items, parsed.items)
 
   const meal: Meal = {
     items: nextItems,
-    protein: parsed.meal.protein,
-    calories: parsed.meal.calories,
-    plants: parsed.meal.plants,
-    note: parsed.meal.note,
+    protein: parsed.protein,
+    calories: parsed.calories,
+    plants: parsed.plants,
+    note: parsed.note,
   }
   if (mealKey === 'snack') {
     if (typeof index !== 'number' || !day.snacks[index]) return { error: '加餐序号不对' }

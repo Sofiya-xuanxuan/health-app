@@ -33,6 +33,15 @@ const SYSTEM = `你是营养记录助手，帮用户把一餐的自然语言描�
 - items 用简洁中文概括这餐吃了什么。
 - note 只写估算口径（如"份量估算"），不要写建议。`
 
+const EDIT_SYSTEM = `你是营养记录校准助手，负责把一条已经保存过的餐食按用户新输入重新结构化。
+规则：
+- 输入会包含 previous 旧记录和 edited 用户修改后的内容。
+- 如果用户只是改克重、份数、去皮、少油、蘸料等细节，必须以 previous 的蛋白质和热量为基准，只调整变化的部分，不要把整餐从零重新估算。
+- 如果食物内容没变，items 保留 previous.items，不要写"上一条记录的餐食"、"按用户修正"这类说明文字。
+- 如果用户明确替换或新增/删除食物，items 用修改后的真实食物名称，没变的食物仍沿用 previous 的估算口径。
+- 用户写了明确热量或蛋白质数值时，以用户数值为准；没写清楚的字段再估算。
+- plants 仍按原始植物食材归一；note 只写估算口径，不要写建议。`
+
 const ENTRY_SYSTEM = `你是健康记录解析助手，帮用户把一整条自然语言记录转成结构化数据。
 规则：
 - 直接处理用户原文，不要要求用户分条提交。
@@ -553,10 +562,42 @@ export async function parseMeal(message: string): Promise<ParsedMeal> {
   const client = new Anthropic()
   const res = await client.messages.create({
     model: MODEL,
+    temperature: 0,
     max_tokens: 1024,
     output_config: { effort: 'low', format: SCHEMA },
     system: SYSTEM,
     messages: [{ role: 'user', content: message }],
+  })
+
+  const text = res.content.find((b) => b.type === 'text')
+  if (!text || text.type !== 'text' || !text.text.trim()) throw new Error('AI 未返回内容')
+  return coerce(text.text)
+}
+
+export async function parseEditedMeal(meal: ParsedMeal['meal'], previous: Meal, edited: string): Promise<ParsedMeal> {
+  if (!process.env.ANTHROPIC_API_KEY) return parseMeal(`${meal} ${edited}`)
+
+  const client = new Anthropic()
+  const res = await client.messages.create({
+    model: MODEL,
+    temperature: 0,
+    max_tokens: 1024,
+    output_config: { effort: 'low', format: SCHEMA },
+    system: EDIT_SYSTEM,
+    messages: [{
+      role: 'user',
+      content: JSON.stringify({
+        meal,
+        previous: {
+          items: previous.items,
+          protein: previous.protein,
+          calories: previous.calories,
+          plants: previous.plants ?? [],
+          note: previous.note,
+        },
+        edited,
+      }),
+    }],
   })
 
   const text = res.content.find((b) => b.type === 'text')
