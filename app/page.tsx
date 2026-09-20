@@ -113,7 +113,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="flex-1 px-4 pb-28">
+      <main className="flex-1 px-4 pb-40">
         {tab === "log" ? (
           <LogTab
             date={date}
@@ -152,7 +152,7 @@ export default function Home() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 mx-auto flex w-full max-w-md border-t border-neutral-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
+      <nav className="fixed inset-x-0 bottom-0 z-20 mx-auto flex w-full max-w-md border-t border-neutral-100 bg-white/90 pb-[env(safe-area-inset-bottom)] backdrop-blur">
         <TabButton active={tab === "log"} onClick={() => setTab("log")} label="记录" />
         <TabButton
           active={tab === "day"}
@@ -397,7 +397,7 @@ function LogTab({
         </div>
       )}
 
-      <div className="fixed inset-x-0 bottom-[52px] mx-auto w-full max-w-md border-t border-neutral-100 bg-white/95 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] backdrop-blur">
+      <div className="fixed inset-x-0 bottom-[52px] z-30 mx-auto w-full max-w-md border-t border-neutral-100 bg-white/95 px-3 py-2.5 pb-[calc(0.625rem+env(safe-area-inset-bottom))] backdrop-blur">
         <div className="flex gap-2">
           <Input.TextArea
             autoSize={{ minRows: 1, maxRows: 4 }}
