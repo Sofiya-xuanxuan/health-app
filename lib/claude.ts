@@ -562,7 +562,6 @@ export async function parseMeal(message: string): Promise<ParsedMeal> {
   const client = new Anthropic()
   const res = await client.messages.create({
     model: MODEL,
-    temperature: 0,
     max_tokens: 1024,
     output_config: { effort: 'low', format: SCHEMA },
     system: SYSTEM,
@@ -580,7 +579,6 @@ export async function parseEditedMeal(meal: ParsedMeal['meal'], previous: Meal, 
   const client = new Anthropic()
   const res = await client.messages.create({
     model: MODEL,
-    temperature: 0,
     max_tokens: 1024,
     output_config: { effort: 'low', format: SCHEMA },
     system: EDIT_SYSTEM,
