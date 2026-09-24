@@ -3,6 +3,7 @@ import { parseEntry, type ChatHistory } from '@/lib/claude'
 import { runAgent, type AgentHistory } from '@/lib/agent'
 import { deleteMeal, editMeal, saveParsed } from '@/lib/records'
 import { authed } from '@/lib/auth'
+import { isAiAuthError } from '@/lib/ai'
 import { today } from '@/lib/week'
 import type { Activity } from '@/lib/types'
 
@@ -20,13 +21,16 @@ export async function POST(req: Request) {
     return Response.json(result)
   } catch (e) {
     console.error('Agent 失败', e)
+    if (isAiAuthError(e)) {
+      return Response.json({ error: 'AI 配置无效，请检查 ANTHROPIC_API_KEY 和 ANTHROPIC_BASE_URL' }, { status: 502 })
+    }
     try {
       const parsed = await parseEntry(message, date)
       const saved = await saveParsed(date, parsed)
       return 'error' in saved ? Response.json(saved, { status: 400 }) : Response.json(saved)
     } catch (fallbackError) {
       console.error('记录兜底失败', fallbackError)
-      return Response.json({ error: 'AI 处理失败：' + (e instanceof Error ? e.message : String(e)) }, { status: 502 })
+      return Response.json({ error: '记录失败，请检查 AI 配置后重试' }, { status: 502 })
     }
   }
 }

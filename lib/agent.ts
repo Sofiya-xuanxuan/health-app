@@ -1,5 +1,5 @@
-import Anthropic from '@anthropic-ai/sdk'
 import type { MessageParam, Tool } from '@anthropic-ai/sdk/resources/messages'
+import { aiConfigured, createAiClient, isAiAuthError } from './ai.ts'
 import { getDay, listActivities, listDays, upsertActivity } from './db.ts'
 import { agentDecision, parseEntry, type ChatHistory } from './claude.ts'
 import { monthRange, summarize, weekRange, weeklySnackTrend } from './summary.ts'
@@ -130,9 +130,9 @@ const TOOLS: Tool[] = [
 ]
 
 export async function runAgent(request: AgentRequest): Promise<AgentResult> {
-  if (!process.env.ANTHROPIC_API_KEY) return fallbackAgent(request)
+  const client = createAiClient()
+  if (!client || !aiConfigured()) return fallbackAgent(request)
 
-  const client = new Anthropic()
   const state: ToolState = { saved: [], activities: [] }
   const messages: MessageParam[] = [
     ...request.history.slice(-8).map((item) => ({ role: item.role === 'app' ? 'assistant' : 'user', content: item.text }) as MessageParam),
@@ -188,6 +188,7 @@ export async function runAgent(request: AgentRequest): Promise<AgentResult> {
       messages.push({ role: 'user', content: results })
     }
   } catch (error) {
+    if (isAiAuthError(error)) throw error
     if (state.saved.length || state.activities.length || state.deletedActivityId) {
       return { ...mergeSaved(state.saved, state), reply: '已完成能执行的操作，但 AI 对话在继续处理时中断了。' }
     }

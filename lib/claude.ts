@@ -1,4 +1,4 @@
-import Anthropic from '@anthropic-ai/sdk'
+import { aiConfigured, createAiClient, isAiAuthError } from './ai.ts'
 import { activityFromRun } from './activity.ts'
 import type { Run, RunActivity } from './icloud.ts'
 import { isWeeklySnackNote, type Activity, type DayRecord, type Meal } from './types.ts'
@@ -155,9 +155,9 @@ export type AgentDecision = { mode: 'record'; recordMessage?: string } | { mode:
 
 export async function agentDecision(message: string, context: ChatContext): Promise<AgentDecision> {
   const fallback = localAgentDecision(message, context)
-  if (!process.env.ANTHROPIC_API_KEY) return fallback
+  const client = createAiClient()
+  if (!client || !aiConfigured()) return fallback
 
-  const client = new Anthropic()
   try {
     const res = await client.messages.create({
       model: MODEL,
@@ -215,23 +215,28 @@ function shouldRecord(message: string): boolean {
 
 export async function answerQuestion(message: string, context: ChatContext): Promise<string> {
   const fallback = localAnswer(message, context)
-  if (!process.env.ANTHROPIC_API_KEY) return fallback
+  const client = createAiClient()
+  if (!client || !aiConfigured()) return fallback
 
-  const client = new Anthropic()
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 800,
-    output_config: { effort: 'low' },
-    system: `你是健康记录 app 里的问答助手。只根据给你的当天记录回答；不要保存或修改数据；不知道就直说。回答要简洁，用中文。`,
-    messages: [{
-      role: 'user',
-      content: `日期：${context.date}
+  try {
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: 800,
+      output_config: { effort: 'low' },
+      system: `你是健康记录 app 里的问答助手。只根据给你的当天记录回答；不要保存或修改数据；不知道就直说。回答要简洁，用中文。`,
+      messages: [{
+        role: 'user',
+        content: `日期：${context.date}
 当天记录：${JSON.stringify(compactContext(context))}
 用户问题：${message}`,
-    }],
-  })
-  const text = res.content.find((b) => b.type === 'text')
-  return text && text.type === 'text' && text.text.trim() ? text.text.trim() : fallback
+      }],
+    })
+    const text = res.content.find((b) => b.type === 'text')
+    return text && text.type === 'text' && text.text.trim() ? text.text.trim() : fallback
+  } catch (error) {
+    console.error('Anthropic 问答调用失败，改用本地回答', error)
+    return fallback
+  }
 }
 
 function compactContext({ day, activities }: ChatContext) {
@@ -397,12 +402,22 @@ export async function parseEntry(message: string, date: string): Promise<ParsedE
     const snack = await parseMeal(message.replace(/^(本周|这周)?\s*(零食摄入|零食)[:：]?\s*/i, '加餐 '))
     return { kind: 'weeklySnack', snack: { items: snack.items, calories: snack.calories, note: snack.note } }
   }
-  if (process.env.ANTHROPIC_API_KEY) return parseEntryWithAi(message)
+  if (aiConfigured()) {
+    try {
+      return await parseEntryWithAi(message)
+    } catch (error) {
+      if (isAiAuthError(error)) throw error
+      console.error('Anthropic 记录解析失败，改用本地解析', error)
+    }
+  }
 
-  // Demo/测试环境没接 AI，才用本地规则兜底。
+  return parseEntryLocally(message, date)
+}
+
+function parseEntryLocally(message: string, date: string): ParsedEntry {
   const sections = splitSections(message)
   if (sections.length > 1) {
-    const entries = await Promise.all(sections.map((section) => parseSection(section, date)))
+    const entries = sections.map((section) => parseSectionLocally(section, date))
     return { kind: 'batch', entries: entries.filter((entry) => !(entry.kind === 'activities' && entry.activities.length === 0)) }
   }
   if (isExerciseOnly(message)) {
@@ -415,11 +430,12 @@ export async function parseEntry(message: string, date: string): Promise<ParsedE
     }
   }
   if (isStudyOnly(message)) return { kind: 'activities', activities: parseStudyActivities(message) }
-  return { kind: 'meal', meal: await parseMeal(message) }
+  return { kind: 'meal', meal: demoParse(message) }
 }
 
 async function parseEntryWithAi(message: string): Promise<ParsedEntry> {
-  const client = new Anthropic()
+  const client = createAiClient()
+  if (!client) throw new Error('AI 未配置')
   const res = await client.messages.create({
     model: MODEL,
     max_tokens: 2048,
@@ -446,7 +462,7 @@ function splitSections(message: string): Section[] {
   })).filter((section) => section.text)
 }
 
-async function parseSection(section: Section, date: string): Promise<ParsedSingleEntry> {
+function parseSectionLocally(section: Section, date: string): ParsedSingleEntry {
   if (/运动/.test(section.label)) {
     const run = parseExercise(section.text, date)
     return {
@@ -461,7 +477,7 @@ async function parseSection(section: Section, date: string): Promise<ParsedSingl
     /午/.test(section.label) ? '午餐' :
     /晚/.test(section.label) ? '晚餐' :
     '加餐'
-  return { kind: 'meal', meal: await parseMeal(`${prefix} ${section.text}`) }
+  return { kind: 'meal', meal: demoParse(`${prefix} ${section.text}`) }
 }
 
 function isWeeklySnack(message: string): boolean {
@@ -559,48 +575,60 @@ function demoParse(message: string): ParsedMeal {
 }
 
 export async function parseMeal(message: string): Promise<ParsedMeal> {
-  if (!process.env.ANTHROPIC_API_KEY) return demoParse(message)
+  const client = createAiClient()
+  if (!client || !aiConfigured()) return demoParse(message)
 
-  const client = new Anthropic()
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    output_config: { effort: 'low', format: SCHEMA },
-    system: SYSTEM,
-    messages: [{ role: 'user', content: message }],
-  })
+  try {
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      output_config: { effort: 'low', format: SCHEMA },
+      system: SYSTEM,
+      messages: [{ role: 'user', content: message }],
+    })
 
-  const text = res.content.find((b) => b.type === 'text')
-  if (!text || text.type !== 'text' || !text.text.trim()) throw new Error('AI 未返回内容')
-  return coerce(text.text)
+    const text = res.content.find((b) => b.type === 'text')
+    if (!text || text.type !== 'text' || !text.text.trim()) throw new Error('AI 未返回内容')
+    return coerce(text.text)
+  } catch (error) {
+    if (isAiAuthError(error)) throw error
+    console.error('Anthropic 餐食解析失败，改用演示解析', error)
+    return demoParse(message)
+  }
 }
 
 export async function parseEditedMeal(meal: ParsedMeal['meal'], previous: Meal, edited: string): Promise<ParsedMeal> {
-  if (!process.env.ANTHROPIC_API_KEY) return parseMeal(`${meal} ${edited}`)
+  const client = createAiClient()
+  if (!client || !aiConfigured()) return parseMeal(`${meal} ${edited}`)
 
-  const client = new Anthropic()
-  const res = await client.messages.create({
-    model: MODEL,
-    max_tokens: 1024,
-    output_config: { effort: 'low', format: SCHEMA },
-    system: EDIT_SYSTEM,
-    messages: [{
-      role: 'user',
-      content: JSON.stringify({
-        meal,
-        previous: {
-          items: previous.items,
-          protein: previous.protein,
-          calories: previous.calories,
-          plants: previous.plants ?? [],
-          note: previous.note,
-        },
-        edited,
-      }),
-    }],
-  })
+  try {
+    const res = await client.messages.create({
+      model: MODEL,
+      max_tokens: 1024,
+      output_config: { effort: 'low', format: SCHEMA },
+      system: EDIT_SYSTEM,
+      messages: [{
+        role: 'user',
+        content: JSON.stringify({
+          meal,
+          previous: {
+            items: previous.items,
+            protein: previous.protein,
+            calories: previous.calories,
+            plants: previous.plants ?? [],
+            note: previous.note,
+          },
+          edited,
+        }),
+      }],
+    })
 
-  const text = res.content.find((b) => b.type === 'text')
-  if (!text || text.type !== 'text' || !text.text.trim()) throw new Error('AI 未返回内容')
-  return coerce(text.text)
+    const text = res.content.find((b) => b.type === 'text')
+    if (!text || text.type !== 'text' || !text.text.trim()) throw new Error('AI 未返回内容')
+    return coerce(text.text)
+  } catch (error) {
+    if (isAiAuthError(error)) throw error
+    console.error('Anthropic 编辑解析失败，改用演示解析', error)
+    return parseMeal(`${meal} ${edited}`)
+  }
 }

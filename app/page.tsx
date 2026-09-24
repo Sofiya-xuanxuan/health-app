@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { App as AntApp, Button, Form, Input, InputNumber, Modal, Progress, Segmented } from "antd";
 import { isWeeklySnackNote, type Activity, type ActivityCategory, type DayRecord, type Meal } from "@/lib/types";
@@ -76,12 +76,21 @@ export default function Home() {
   const [msgs, setMsgs] = useState<ChatItem[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const dayRequestRef = useRef(0);
 
   async function loadDay(d: string) {
-    const res = await api(`/api/days?date=${d}`);
-    const json = await res.json();
-    setDay(json.day ?? null);
-    setActivities(json.activities ?? []);
+    const requestId = ++dayRequestRef.current;
+    try {
+      const res = await api(`/api/days?date=${d}`);
+      const json = await res.json();
+      if (requestId !== dayRequestRef.current) return;
+      setDay(json.day ?? null);
+      setActivities(json.activities ?? []);
+    } catch {
+      if (requestId !== dayRequestRef.current) return;
+      setDay(null);
+      setActivities([]);
+    }
   }
 
   useEffect(() => {
